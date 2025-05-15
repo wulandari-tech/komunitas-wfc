@@ -4,49 +4,45 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Channels - <%= username %></title>
-    <%- include('partials/common_head_content') %> <style>
-        .content-area { flex-grow: 1; display: flex; flex-direction: column; background-color: var(--bg-chat-area); padding: 0; }
-        .page-header { display: flex; justify-content: space-between; align-items: center; padding: 20px 25px; background-color: var(--bg-header); border-bottom: 1px solid var(--border-color); }
+    <%- include('partials/common_head_content') %>
+    <style>
+        .content-area { flex-grow: 1; display: flex; flex-direction: column; background-color: var(--bg-chat-area); }
+        .page-header { display: flex; justify-content: space-between; align-items: center; padding: 20px 25px; background-color: var(--bg-header); border-bottom: 1px solid var(--border-color); flex-shrink: 0; }
         .page-header h1 { font-size: 1.5em; color: var(--text-primary); font-weight: 600; margin: 0; display: flex; align-items: center; }
         .page-header h1 i { margin-right: 10px; }
-        .btn-primary { background-color: var(--accent-color); color: white; padding: 10px 18px; border: none; border-radius: 6px; text-decoration: none; font-weight: 500; transition: background-color 0.2s ease; display: inline-flex; align-items: center; }
-        .btn-primary i { margin-right: 8px; }
-        .btn-primary:hover { background-color: var(--accent-hover); }
         .page-content { padding: 25px; overflow-y: auto; flex-grow: 1; }
         .channel-list { list-style: none; padding: 0; margin: 0; }
-        .channel-item { background-color: var(--bg-header); border-radius: 8px; margin-bottom: 15px; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; transition: transform 0.2s ease, box-shadow 0.2s ease; }
+        .channel-item { background-color: var(--bg-header); border-radius: 8px; margin-bottom: 15px; padding: 15px 20px; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; transition: transform 0.2s ease, box-shadow 0.2s ease; }
         .channel-item:hover { transform: translateY(-3px); box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
+        .channel-info { flex-grow: 1; margin-right: 15px; min-width: 200px; }
         .channel-info h3 { margin: 0 0 5px 0; font-size: 1.2em; }
         .channel-info h3 a { color: var(--text-primary); text-decoration: none; }
         .channel-info h3 a:hover { color: var(--accent-color); }
+        .channel-info h3 .fa-lock { font-size: 0.8em; margin-left: 5px; color: var(--text-secondary); }
         .channel-info p { margin: 0; font-size: 0.9em; color: var(--text-secondary); max-width: 400px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .channel-meta { font-size: 0.85em; color: var(--text-secondary); text-align: right; }
+        .channel-meta { font-size: 0.85em; color: var(--text-secondary); text-align: right; flex-shrink: 0; }
         .channel-meta .creator { display: block; margin-bottom: 3px; }
+        .channel-meta .creator a { color: var(--text-username); text-decoration: none; }
+        .channel-meta .creator a:hover { text-decoration: underline; }
         .channel-meta .members-count { display: block; }
-        .form-container { background-color: var(--bg-header); padding: 25px; border-radius: 8px; margin-top: 20px; }
+        .channel-actions .btn-primary { padding: 6px 12px; font-size: 0.85em; margin-top: 5px; }
+        .form-container { background-color: var(--bg-header); padding: 25px; border-radius: 8px; margin-top: 20px; margin-bottom: 30px; }
         .form-container h2 { margin-top: 0; margin-bottom: 20px; font-size: 1.3em; }
-        .form-group { margin-bottom: 15px; }
-        .form-group label { display: block; margin-bottom: 5px; font-weight: 500; }
-        .form-group input[type="text"], .form-group textarea { width: 100%; padding: 10px; background-color: var(--bg-input); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-primary); font-size: 1em; }
-        .form-group textarea { min-height: 80px; resize: vertical; }
-        .form-group input[type="checkbox"] { margin-right: 8px; vertical-align: middle; }
-        .alert { padding: 10px 15px; border-radius: 6px; margin-bottom: 15px; font-size: 0.9em; }
-        .alert-danger { background-color: rgba(220,53,69,0.2); color: #f8d7da; border: 1px solid var(--danger-color); }
-        .alert-success { background-color: rgba(40,167,69,0.2); color: #d4edda; border: 1px solid var(--success-color); }
     </style>
 </head>
 <body>
-    <div class="chat-app-container">
+    <div class="app-container">
         <%- include('partials/navbar', { username: username, userId: userId, activePage: activePage, currentUser: currentUser, unreadNotificationsCount: unreadNotificationsCount }) %>
         <div class="sidebar-overlay" id="sidebarOverlay"></div>
         <main class="content-area">
             <div class="page-header">
                 <h1><i class="fas fa-hashtag"></i> Daftar Channels</h1>
+                <button class="menu-toggle-btn-placeholder" id="menuToggleBtn" title="Buka Menu"><i class="fas fa-bars"></i></button>
                 <button class="btn-primary" onclick="document.getElementById('createChannelForm').style.display = document.getElementById('createChannelForm').style.display === 'block' ? 'none' : 'block';"><i class="fas fa-plus"></i> Buat Channel Baru</button>
             </div>
             <div class="page-content">
-                <% if (locals.error) { %><div class="alert alert-danger"><%= error %></div><% } %>
-                <% if (locals.success) { %><div class="alert alert-success"><%= success %></div><% } %>
+                <% if (locals.error) { %><div class="alert alert-danger"><i class="fas fa-times-circle"></i> <%= error %></div><% } %>
+                <% if (locals.success) { %><div class="alert alert-success"><i class="fas fa-check-circle"></i> <%= success %></div><% } %>
 
                 <div id="createChannelForm" style="display: none;" class="form-container">
                     <h2><i class="fas fa-edit"></i> Buat Channel</h2>
@@ -61,7 +57,7 @@
                         </div>
                         <div class="form-group">
                             <input type="checkbox" id="isPrivate" name="isPrivate" value="true">
-                            <label for="isPrivate">Channel Privat</label>
+                            <label for="isPrivate">Channel Privat (Hanya bisa diakses via undangan)</label>
                         </div>
                         <button type="submit" class="btn-primary"><i class="fas fa-check"></i> Simpan Channel</button>
                     </form>
@@ -72,13 +68,19 @@
                         <% channels.forEach(channel => { %>
                             <li class="channel-item">
                                 <div class="channel-info">
-                                    <h3><a href="/channels/<%= channel._id %>"><%= channel.name %> <% if (channel.isPrivate) { %><i class="fas fa-lock fa-xs" title="Privat"></i><% } %></a></h3>
+                                    <h3><a href="/channels/<%= channel._id %>"><%= channel.name %> <% if (channel.isPrivate) { %><i class="fas fa-lock" title="Privat"></i><% } %></a></h3>
                                     <p><%= channel.description || 'Tidak ada deskripsi.' %></p>
                                 </div>
                                 <div class="channel-meta">
-                                    <span class="creator">Dibuat oleh: <%= channel.creator.displayUsername %></span>
+                                    <span class="creator">Dibuat oleh: <a href="/profile/<%= channel.creator.username || channel.creator.displayUsername %>"><%= channel.creator.displayUsername %></a></span>
                                     <span class="members-count"><i class="fas fa-users"></i> <%= channel.members.length %> Anggota</span>
-                                    <a href="/channels/<%= channel._id %>/join" class="btn-primary" style="padding: 5px 10px; font-size: 0.8em; margin-top: 5px;">Join</a>
+                                    <div class="channel-actions">
+                                    <% if (!channel.members.find(memberId => memberId.toString() === userId) && !channel.isPrivate && channel.creator._id.toString() !== userId) { %>
+                                        <a href="/channels/<%= channel._id %>/join" class="btn-primary">Join</a>
+                                    <% } else if (channel.members.find(memberId => memberId.toString() === userId) || channel.creator._id.toString() === userId) { %>
+                                         <a href="/channels/<%= channel._id %>" class="btn-primary">Masuk</a>
+                                    <% } %>
+                                    </div>
                                 </div>
                             </li>
                         <% }); %>

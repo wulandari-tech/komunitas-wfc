@@ -11,7 +11,9 @@
     .navbar-header .brand-logo i { margin-right: 10px; color: var(--accent-color, #ff6b6b); }
     .navbar-header .brand-logo:hover { color: var(--accent-color, #ff6b6b); }
     .user-profile-nav { text-align: center; margin-bottom: 20px; padding: 10px 0; }
-    .user-profile-nav .avatar-nav { width: 70px; height: 70px; border-radius: 50%; background-color: var(--bg-input); display: flex; justify-content: center; align-items: center; margin: 0 auto 10px auto; font-size: 2em; color: var(--text-primary); background-size: cover; background-position: center; }
+    .user-profile-nav .avatar-nav-link { text-decoration: none; display: inline-block; }
+    .user-profile-nav .avatar-nav { width: 70px; height: 70px; border-radius: 50%; background-color: var(--bg-input); display: flex; justify-content: center; align-items: center; margin: 0 auto 10px auto; font-size: 2em; color: var(--text-primary); background-size: cover; background-position: center; border: 2px solid var(--border-color); transition: border-color 0.2s ease;}
+    .user-profile-nav .avatar-nav-link:hover .avatar-nav { border-color: var(--accent-color); }
     .user-profile-nav .avatar-nav i { transform: translateY(1px); }
     .user-profile-nav h3 { color: var(--text-primary, #e0e0e0); font-size: 1.05em; font-weight: 500; margin-bottom: 3px; word-break: break-all; }
     .user-profile-nav p.status { color: var(--online-indicator, #2ecc71); font-size: 0.8em; font-weight: 500; }
@@ -32,17 +34,18 @@
 
 <nav class="main-navbar" id="mainNavbar">
     <div class="navbar-header">
-        <button class="navbar-close-btn" id="navbarCloseBtn" title="T
-        tutup Menu"><i class="fas fa-times"></i></button>
-        <a href="/chat" class="brand-logo"><i class="fas fa-meteor"></i>KOMUNITAS-WFC</a>
+        <button class="navbar-close-btn" id="navbarCloseBtn" title="Tutup Menu"><i class="fas fa-times"></i></button>
+        <a href="/chat" class="brand-logo"><i class="fas fa-meteor"></i>UltraChat</a>
     </div>
     <div class="navbar-scroll-container">
         <div class="user-profile-nav">
-            <div class="avatar-nav" style="background-image: url('<%= locals.currentUser && locals.currentUser.profilePictureUrl && locals.currentUser.profilePictureUrl !== '' ? locals.currentUser.profilePictureUrl : '/default-avatar.png' %>');">
-                <% if (!locals.currentUser || !locals.currentUser.profilePictureUrl || locals.currentUser.profilePictureUrl === '') { %>
-                    <i class="fas fa-user-astronaut"></i>
-                <% } %>
-            </div>
+            <a href="/profile/<%= locals.currentUser ? locals.currentUser.username : '' %>" class="avatar-nav-link" title="Lihat Profil Saya">
+                <div class="avatar-nav" style="background-image: url('<%= locals.currentUser && locals.currentUser.profilePictureUrl && locals.currentUser.profilePictureUrl !== '' ? locals.currentUser.profilePictureUrl : '' %>');">
+                    <% if (!locals.currentUser || !locals.currentUser.profilePictureUrl || locals.currentUser.profilePictureUrl === '') { %>
+                        <i class="fas fa-user-astronaut"></i>
+                    <% } %>
+                </div>
+            </a>
             <h3><%= locals.username || 'Pengguna' %></h3>
             <p class="status"><i class="fas fa-circle"></i> Online</p>
         </div>

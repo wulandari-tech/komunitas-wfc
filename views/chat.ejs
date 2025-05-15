@@ -18,6 +18,8 @@
         .menu-toggle-btn { background: none; border: none; color: var(--text-primary); font-size: 1.6em; cursor: pointer; padding: 5px 10px; margin-right: 15px; line-height: 1; }
         .menu-toggle-btn:hover { color: var(--accent-color); }
         .chat-header h1 { font-size: 1.3em; color: var(--text-primary); font-weight: 600; margin: 0; }
+        .chat-header h1 a { color: var(--text-primary); text-decoration: none; }
+        .chat-header h1 a:hover { color: var(--accent-color); }
         .chat-header h1 i.channel-icon { margin-right: 8px; font-size: 0.9em; color: var(--text-secondary); }
         #messages-list { list-style-type: none; padding: 20px; flex-grow: 1; overflow-y: auto; display: flex; flex-direction: column; }
         #messages-list::-webkit-scrollbar { width: 8px; }
@@ -26,10 +28,13 @@
         #messages-list::-webkit-scrollbar-thumb:hover { background: var(--accent-color); }
         .message-item { display: flex; margin-bottom: 15px; max-width: 75%; animation: fadeIn 0.3s ease-out; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        .message-item .avatar-placeholder { width: 40px; height: 40px; border-radius: 50%; background-color: var(--bg-input); margin-right: 12px; flex-shrink: 0; background-size: cover; background-position: center; display: flex; justify-content: center; align-items: center; font-weight: 600; color: var(--text-primary); }
+        .message-item .avatar-link { text-decoration: none; display: block; }
+        .message-item .avatar-placeholder { width: 40px; height: 40px; border-radius: 50%; background-color: var(--bg-input); margin-right: 12px; flex-shrink: 0; background-size: cover; background-position: center; display: flex; justify-content: center; align-items: center; font-weight: 600; color: var(--text-primary); border: 1px solid var(--border-color); }
         .message-item .avatar-placeholder i { font-size: 1.5em; }
         .message-content { padding: 10px 15px; border-radius: 18px; position: relative; line-height: 1.5; }
-        .message-content .username { font-weight: 600; margin-bottom: 3px; font-size: 0.85em; display: block; color: var(--text-username); }
+        .message-content .username { font-weight: 600; margin-bottom: 3px; font-size: 0.85em; display: block; }
+        .message-content .username a { color: var(--text-username); text-decoration: none; }
+        .message-content .username a:hover { text-decoration: underline; }
         .message-content .text { word-wrap: break-word; font-size: 0.95em; color: var(--text-primary); }
         .message-content .timestamp { font-size: 0.7em; color: var(--text-secondary); display: block; margin-top: 4px; text-align: right; }
         .message-item.sent { align-self: flex-end; flex-direction: row-reverse; }
@@ -46,10 +51,6 @@
         #message-form button { padding: 0 25px; background-color: var(--accent-color); color: white; border: none; border-radius: 25px; cursor: pointer; font-size: 1.2em; display: flex; align-items: center; justify-content: center; transition: background-color 0.2s ease; }
         #message-form button:hover { background-color: var(--accent-hover); }
         .typing-indicator { padding: 0 20px 10px; font-style: italic; color: var(--text-secondary); font-size: 0.9em; height: 20px; flex-shrink: 0; }
-        .typing-indicator span { animation: blink 1s infinite; margin: 0 2px; }
-        .typing-indicator span:nth-child(2) { animation-delay: 0.2s; }
-        .typing-indicator span:nth-child(3) { animation-delay: 0.4s; }
-        @keyframes blink { 50% { opacity: 0; } }
         .no-messages-placeholder { text-align:center; color: var(--text-secondary); margin-top: 30px; padding: 20px; font-size: 1.1em;}
         .no-messages-placeholder i { font-size: 2.5em; display: block; margin-bottom: 10px; opacity: 0.6;}
     </style>
@@ -66,7 +67,10 @@
                 </button>
                 <h1>
                     <% if (currentChannel && currentChannel.name) { %>
-                        <i class="fas fa-hashtag channel-icon"></i><%= currentChannel.name %>
+                        <a href="/channels/<%= currentChannel._id %>" title="Info Channel <%= currentChannel.name %>">
+                            <i class="fas fa-hashtag channel-icon"></i><%= currentChannel.name %>
+                        </a>
+                        <% if (currentChannel.topic) { %><small style="font-size: 0.7em; margin-left: 10px; color: var(--text-secondary); font-weight: 400;"> - <%= currentChannel.topic %></small><% } %>
                     <% } else { %>
                         Diskusi Umum
                     <% } %>
@@ -76,28 +80,33 @@
             <ul id="messages-list">
                 <% if (messages && messages.length > 0) { %>
                     <% messages.forEach(function(msg) { %>
-                        <li class="message-item <%= msg.userId && msg.userId._id && msg.userId._id.toString() === userId ? 'sent' : 'received' %>" data-id="<%= msg._id %>">
-                            <div class="avatar-placeholder" style="background-image: url('<%= msg.userId && msg.userId.profilePictureUrl && msg.userId.profilePictureUrl !== '' ? msg.userId.profilePictureUrl : '' %>');">
-                                <% if (!msg.userId || !msg.userId.profilePictureUrl || msg.userId.profilePictureUrl === '') { %>
-                                    <i class="fas fa-user"></i>
-                                <% } %>
-                            </div>
-                            <div class="message-content">
-                                <% if (msg.userId && msg.userId._id && msg.userId._id.toString() !== userId) { %>
-                                    <span class="username"><%= msg.userId.displayUsername || msg.user %></span>
-                                <% } %>
-                                <span class="text"><%- msg.text %></span>
-                                <span class="timestamp"><%= new Date(msg.timestamp).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) %></span>
-                            </div>
-                        </li>
+                        <% if (msg.userId) { %>
+                            <li class="message-item <%= msg.userId._id && msg.userId._id.toString() === userId ? 'sent' : 'received' %>" data-id="<%= msg._id %>">
+                                 <a href="/profile/<%= msg.userId.username %>" class="avatar-link" title="Lihat Profil <%= msg.userId.displayUsername %>">
+                                    <div class="avatar-placeholder" style="background-image: url('<%= msg.userId.profilePictureUrl && msg.userId.profilePictureUrl !== '' ? msg.userId.profilePictureUrl : '' %>');">
+                                        <% if (!msg.userId.profilePictureUrl || msg.userId.profilePictureUrl === '') { %>
+                                            <i class="fas fa-user"></i>
+                                        <% } %>
+                                    </div>
+                                </a>
+                                <div class="message-content">
+                                    <% if (msg.userId._id && msg.userId._id.toString() !== userId) { %>
+                                        <span class="username">
+                                            <a href="/profile/<%= msg.userId.username %>" title="Lihat Profil <%= msg.userId.displayUsername %>"><%= msg.userId.displayUsername %></a>
+                                        </span>
+                                    <% } %>
+                                    <span class="text"><%- msg.text %></span>
+                                    <span class="timestamp"><%= new Date(msg.timestamp).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) %></span>
+                                </div>
+                            </li>
+                        <% } %>
                     <% }); %>
                 <% } else { %>
                     <li class="no-messages-placeholder"><i class="far fa-comments"></i>Belum ada pesan di sini. Mulai percakapan!</li>
                 <% } %>
             </ul>
             
-            <div class="typing-indicator" id="typing-indicator-area">
-            </div>
+            <div class="typing-indicator" id="typing-indicator-area"></div>
 
             <form id="message-form">
                 <input type="text" id="message-input" placeholder="Ketik pesan Anda..." autocomplete="off">
@@ -107,7 +116,7 @@
     </div>
 
     <%- include('partials/common_scripts') %>
-    <script src="/faye/client.js"></script> <%# Pastikan faye client di-load %>
+    <script src="/faye/client.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             const messageForm = document.getElementById('message-form');
@@ -118,22 +127,21 @@
             const fayeClient = new Faye.Client('/faye');
 
             function addMessageToUI(msg) {
-                console.log("Faye: Received message object:", msg); // Log pesan yang diterima
-                if (!msg || !msg._id || !msg.userId) { // Periksa field penting
-                    console.error("Faye: Invalid message object received", msg);
-                    return;
-                }
-                if (document.querySelector(`.message-item[data-id="${msg._id}"]`)) {
-                    console.log("Faye: Message already in UI, skipping:", msg._id);
-                    return; 
-                }
+                if (!msg || !msg._id || !msg.userId ) return;
+                if (document.querySelector(`.message-item[data-id="${msg._id}"]`)) return; 
 
                 const listItem = document.createElement('li');
                 listItem.classList.add('message-item');
                 listItem.setAttribute('data-id', msg._id);
                 
-                const isSent = msg.userId.toString() === currentUserId; // Bandingkan userId dari pesan dengan userId saat ini
-                listItem.classList.add(isSent ? 'sent' : 'received');
+                const isSentByCurrentUser = msg.userId.toString() === currentUserId;
+                listItem.classList.add(isSentByCurrentUser ? 'sent' : 'received');
+
+                const avatarLink = document.createElement('a');
+                // Gunakan msg.userUsername (username asli) untuk URL profil
+                avatarLink.href = `/profile/${msg.userUsername}`;
+                avatarLink.classList.add('avatar-link');
+                avatarLink.title = `Lihat Profil ${msg.userDisplayUsername}`;
 
                 const avatarDiv = document.createElement('div');
                 avatarDiv.classList.add('avatar-placeholder');
@@ -145,15 +153,20 @@
                     avatarIcon.className = 'fas fa-user';
                     avatarDiv.appendChild(avatarIcon);
                 }
-                listItem.appendChild(avatarDiv);
+                avatarLink.appendChild(avatarDiv);
+                listItem.appendChild(avatarLink);
 
                 const contentDiv = document.createElement('div');
                 contentDiv.classList.add('message-content');
 
-                if (!isSent && msg.userDisplayUsername) {
+                if (!isSentByCurrentUser && msg.userDisplayUsername) {
                     const usernameSpan = document.createElement('span');
                     usernameSpan.classList.add('username');
-                    usernameSpan.textContent = msg.userDisplayUsername;
+                    const userProfileLink = document.createElement('a');
+                    userProfileLink.href = `/profile/${msg.userUsername}`; // Gunakan username asli
+                    userProfileLink.title = `Lihat Profil ${msg.userDisplayUsername}`;
+                    userProfileLink.textContent = msg.userDisplayUsername;
+                    usernameSpan.appendChild(userProfileLink);
                     contentDiv.appendChild(usernameSpan);
                 }
                 
@@ -178,19 +191,12 @@
                 if (messagesList.scrollHeight > messagesList.clientHeight) {
                     messagesList.scrollTop = messagesList.scrollHeight;
                 }
-                console.log("Faye: Message added to UI:", msg._id);
             }
             
             const fayeChannelPath = currentChannelId && currentChannelId !== 'null' ? `/channels/${currentChannelId}/messages` : '/messages/new';
-            
-            console.log(`Faye: Attempting to subscribe to ${fayeChannelPath}`);
-            const fayeSubscription = fayeClient.subscribe(fayeChannelPath, (message) => {
-                addMessageToUI(message);
-            });
+            const fayeSubscription = fayeClient.subscribe(fayeChannelPath, addMessageToUI);
 
-            fayeSubscription.then(() => {
-                console.log(`Faye: Successfully subscribed to ${fayeChannelPath}`);
-            }).catch(err => {
+            fayeSubscription.then(() => {}).catch(err => {
                 console.error(`Faye: Subscription to ${fayeChannelPath} failed`, err);
             });
 
@@ -198,18 +204,15 @@
                 e.preventDefault();
                 const text = messageInput.value.trim();
                 if (!text) return;
-
                 messageInput.disabled = true;
                 const sendButton = messageForm.querySelector('button[type="submit"]');
                 const originalButtonContent = sendButton.innerHTML;
                 sendButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
                 sendButton.disabled = true;
-
                 const messagePayload = { text };
                 if (currentChannelId && currentChannelId !== 'null') {
                     messagePayload.channelId = currentChannelId;
                 }
-
                 try {
                     const response = await fetch('/messages', {
                         method: 'POST',
@@ -218,14 +221,11 @@
                     });
                     if (response.ok) {
                         messageInput.value = '';
-                        // Pesan akan muncul via Faye, tidak perlu ditambah manual di sini
                     } else {
                         const errorData = await response.json();
-                        console.error('Error sending message to server:', errorData.error);
                         alert('Gagal mengirim pesan: ' + (errorData.error || 'Kesalahan server'));
                     }
                 } catch (err) {
-                    console.error('Network error sending message:', err);
                     alert('Gagal mengirim pesan. Periksa koneksi Anda.');
                 } finally {
                     messageInput.disabled = false;
@@ -237,9 +237,6 @@
             
             if (messagesList.scrollHeight > messagesList.clientHeight) {
                  messagesList.scrollTop = messagesList.scrollHeight;
-            } else {
-                // Jika tidak ada scrollbar, pastikan tampilan tetap di bawah jika ada pesan awal sedikit
-                // messagesList.scrollTop = messagesList.scrollHeight; // bisa diaktifkan jika perlu
             }
         });
     </script>

@@ -28,13 +28,26 @@ const userSchema = new mongoose.Schema({
     displayName: { type: String, trim: true },
     profilePictureUrl: { type: String, default: '' },
     friends: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
-    bio: { type: String, trim: true, maxlength: 150, default: '' },
+    bio: { type: String, trim: true, maxlength: 250, default: '' },
     email: { type: String, trim: true, lowercase: true, unique: true, sparse: true },
     online: { type: Boolean, default: false },
     lastSeen: { type: Date },
+    location: { type: String, trim: true, default: '' },
+    website: { type: String, trim: true, default: '' },
+    socialLinks: {
+        github: { type: String, trim: true, default: '' },
+        linkedin: { type: String, trim: true, default: '' },
+        twitter: { type: String, trim: true, default: '' },
+    },
+    joinedDate: { type: Date, default: Date.now },
     createdAt: { type: Date, default: Date.now }
 });
 userSchema.virtual('displayUsername').get(function() { return this.displayName || this.username; });
+userSchema.virtual('formattedJoinedDate').get(function() {
+    return new Date(this.joinedDate || this.createdAt).toLocaleDateString('id-ID', {
+        year: 'numeric', month: 'long', day: 'numeric'
+    });
+});
 const User = mongoose.model('User', userSchema);
 
 const channelSchema = new mongoose.Schema({
@@ -50,7 +63,7 @@ channelSchema.index({ name: 1 }, { unique: true, collation: { locale: 'en', stre
 const Channel = mongoose.model('Channel', channelSchema);
 
 const messageSchema = new mongoose.Schema({
-    user: String,
+    user: String, // Ini sebaiknya deprecated, gunakan userId.displayUsername
     userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
     text: { type: String, required: true, trim: true },
     channelId: { type: mongoose.Schema.Types.ObjectId, ref: 'Channel' },
@@ -118,22 +131,21 @@ async function createAndSendNotification(recipientId, type, message, link = '#',
 }
 
 app.get('/', (req, res) => req.cookies.username ? res.redirect('/chat') : res.redirect('/login'));
-app.get('/login', (req, res) => req.cookies.username ? res.redirect('/chat') : res.render('login', { error: null, success: req.query.success }));
+app.get('/login', (req, res) => req.cookies.username ? res.redirect('/chat') : res.render('login', { error: null, success: req.query.success, oldInput: {} }));
 app.post('/login', async (req, res) => {
     const { username, password } = req.body;
-    if (!username || !password) return res.render('login', { error: 'Nama pengguna dan password harus diisi.' });
+    if (!username || !password) return res.render('login', { error: 'Nama pengguna dan password harus diisi.', oldInput: req.body });
     try {
         const user = await User.findOne({ username: username.toLowerCase() });
-        if (!user) return res.render('login', { error: 'Nama pengguna atau password salah.' });
+        if (!user) return res.render('login', { error: 'Nama pengguna atau password salah.', oldInput: req.body });
         const isMatch = await bcryptjs.compare(password, user.password);
-        if (!isMatch) return res.render('login', { error: 'Nama pengguna atau password salah.' });
+        if (!isMatch) return res.render('login', { error: 'Nama pengguna atau password salah.', oldInput: req.body });
         user.online = true; user.lastSeen = new Date(); await user.save();
         res.cookie('username', user.username, { httpOnly: true, secure: process.env.NODE_ENV === 'production', maxAge: 30 * 24 * 60 * 60 * 1000 });
         res.redirect('/chat');
-    } catch (err) { console.error("Login error:", err); res.render('login', { error: 'Terjadi kesalahan server.' }); }
+    } catch (err) { console.error("Login error:", err); res.render('login', { error: 'Terjadi kesalahan server.', oldInput: req.body }); }
 });
-app.get('/register', (req, res) => req.cookies.username ? res.redirect('/chat') : res.render('register', { error: null, success: null }));
-
+app.get('/register', (req, res) => req.cookies.username ? res.redirect('/chat') : res.render('register', { error: null, success: null, oldInput: {} }));
 app.post('/register', async (req, res) => {
     const { username, password, confirmPassword, email, displayName } = req.body;
     if (!username || !password || !confirmPassword) {
@@ -150,13 +162,11 @@ app.post('/register', async (req, res) => {
         if (existingUserByUsername) {
             return res.render('register', { error: 'Nama pengguna sudah digunakan.', success: null, oldInput: req.body });
         }
-
         const newUserObject = {
             username: username.toLowerCase().trim(),
             password: await bcryptjs.hash(password, saltRounds),
             displayName: displayName ? displayName.trim() : username.trim()
         };
-
         if (email && email.trim() !== '') {
             const trimmedEmail = email.toLowerCase().trim();
             const existingUserByEmail = await User.findOne({ email: trimmedEmail });
@@ -165,7 +175,6 @@ app.post('/register', async (req, res) => {
             }
             newUserObject.email = trimmedEmail;
         }
-
         const newUser = new User(newUserObject);
         await newUser.save();
         res.redirect('/login?success=Registrasi berhasil! Silakan login.');
@@ -174,7 +183,6 @@ app.post('/register', async (req, res) => {
         res.render('register', { error: 'Terjadi kesalahan saat registrasi. Coba lagi.', success: null, oldInput: req.body });
     }
 });
-
 app.get('/logout', requireAuth, async (req, res) => {
     try {
         if (req.user) { req.user.online = false; req.user.lastSeen = new Date(); await req.user.save(); }
@@ -185,7 +193,7 @@ app.get('/logout', requireAuth, async (req, res) => {
 
 app.get('/chat', requireAuth, async (req, res) => {
     try {
-        const messages = await Message.find({ channelId: null }).populate('userId', 'displayUsername profilePictureUrl').sort({ timestamp: 1 }).limit(100);
+        const messages = await Message.find({ channelId: null }).populate('userId', 'username displayName profilePictureUrl').sort({ timestamp: 1 }).limit(100);
         const unreadNotificationsCount = req.user ? await Notification.countDocuments({ recipient: req.user._id, isRead: false }) : 0;
         res.render('chat', {
             messages: messages, username: req.user.displayUsername, userId: req.user._id.toString(),
@@ -211,13 +219,18 @@ app.post('/messages', requireAuth, async (req, res) => {
             channelId: targetChannel ? targetChannel._id : null
         });
         const savedMessage = await newMessage.save();
-        const populatedMessage = await Message.findById(savedMessage._id).populate('userId', 'displayUsername profilePictureUrl');
+        const populatedMessage = await Message.findById(savedMessage._id).populate('userId', 'username displayName profilePictureUrl'); // Pastikan username di-populate
         const messageData = {
-            _id: populatedMessage._id.toString(), user: populatedMessage.user, text: populatedMessage.text,
-            userId: populatedMessage.userId._id.toString(), userDisplayUsername: populatedMessage.userId.displayUsername,
+            _id: populatedMessage._id.toString(),
+            user: populatedMessage.user, // Ini dari displayUsername saat save
+            text: populatedMessage.text,
+            userId: populatedMessage.userId._id.toString(), // ID Pengguna
+            userUsername: populatedMessage.userId.username, // Username asli untuk link profil
+            userDisplayUsername: populatedMessage.userId.displayUsername,
             userProfilePictureUrl: populatedMessage.userId.profilePictureUrl,
             channelId: populatedMessage.channelId ? populatedMessage.channelId.toString() : null,
-            timestamp: populatedMessage.timestamp, isEdited: populatedMessage.isEdited
+            timestamp: populatedMessage.timestamp,
+            isEdited: populatedMessage.isEdited
         };
         const fayePublishPath = targetChannel ? `/channels/${targetChannel._id}/messages` : '/messages/new';
         fayeClient.publish(fayePublishPath, messageData);
@@ -237,7 +250,7 @@ app.post('/messages', requireAuth, async (req, res) => {
 app.get('/channels', requireAuth, async (req, res) => {
     try {
         const channels = await Channel.find({ $or: [{ isPrivate: false }, { members: req.user._id }, { creator: req.user._id }]})
-                                     .populate('creator', 'displayUsername').sort({ name: 1 });
+                                     .populate('creator', 'username displayName').sort({ name: 1 });
         const unreadNotificationsCount = req.user ? await Notification.countDocuments({ recipient: req.user._id, isRead: false }) : 0;
         res.render('channels', {
             username: req.user.displayUsername, userId: req.user._id.toString(), channels, activePage: 'channels',
@@ -265,11 +278,11 @@ app.get('/channels/:id', requireAuth, async (req, res) => {
         if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
              return res.status(400).render('404', { message: 'ID Channel tidak valid', username: req.user.displayUsername, currentUser: req.user });
         }
-        const channel = await Channel.findById(req.params.id).populate('creator', 'displayUsername').populate('members', 'displayUsername profilePictureUrl');
+        const channel = await Channel.findById(req.params.id).populate('creator', 'username displayName').populate('members', 'username displayName profilePictureUrl');
         if (!channel) return res.status(404).render('404', { message: 'Channel tidak ditemukan', username: req.user.displayUsername, currentUser: req.user });
         const isMember = channel.members.some(m => m._id.equals(req.user._id)) || channel.creator._id.equals(req.user._id);
         if (channel.isPrivate && !isMember) return res.status(403).render('403', { message: 'Akses ditolak ke channel privat ini', username: req.user.displayUsername, currentUser: req.user });
-        const messages = await Message.find({ channelId: channel._id }).populate('userId', 'displayUsername profilePictureUrl').sort({ timestamp: 1 }).limit(100);
+        const messages = await Message.find({ channelId: channel._id }).populate('userId', 'username displayName profilePictureUrl').sort({ timestamp: 1 }).limit(100);
         const unreadNotificationsCount = req.user ? await Notification.countDocuments({ recipient: req.user._id, isRead: false }) : 0;
         res.render('chat', {
             username: req.user.displayUsername, userId: req.user._id.toString(), messages, isMember,
@@ -278,7 +291,8 @@ app.get('/channels/:id', requireAuth, async (req, res) => {
         });
     } catch (err) { console.error("Error loading channel detail:", err); res.status(500).send("Error loading channel details"); }
 });
-app.post('/channels/:id/join', requireAuth, async (req, res) => {
+
+app.get('/channels/:id/join', requireAuth, async (req, res) => { // DIPASTIKAN GET
     try {
         if (!mongoose.Types.ObjectId.isValid(req.params.id)) return res.redirect(`/channels?error=ID Channel tidak valid`);
         const channel = await Channel.findById(req.params.id);
@@ -296,16 +310,45 @@ app.post('/channels/:id/join', requireAuth, async (req, res) => {
     } catch (err) { console.error("Error joining channel:", err); res.redirect(`/channels?error=Gagal bergabung ke channel`); }
 });
 
+app.get('/profile/:usernameParam', requireAuth, async (req, res) => {
+    try {
+        const profileUsername = req.params.usernameParam.toLowerCase();
+        const profileUser = await User.findOne({ username: profileUsername })
+            .select('username displayName profilePictureUrl bio location website socialLinks joinedDate createdAt friends online lastSeen');
+
+        if (!profileUser) {
+            return res.status(404).render('404', { message: 'Pengguna tidak ditemukan.', username: req.user.displayUsername, currentUser: req.user });
+        }
+        let areFriends = false;
+        if (req.user && profileUser.friends && profileUser.friends.length > 0) {
+            areFriends = profileUser.friends.some(friendId => friendId.equals(req.user._id));
+        }
+        let friendRequestStatus = null;
+        if (req.user && !req.user._id.equals(profileUser._id) && !areFriends) {
+            const fr = await FriendRequest.findOne({
+                $or: [ { requester: req.user._id, recipient: profileUser._id }, { requester: profileUser._id, recipient: req.user._id } ]
+            });
+            if (fr) { friendRequestStatus = { status: fr.status, isRequester: fr.requester.equals(req.user._id), requestId: fr._id }; }
+        }
+        const unreadNotificationsCount = req.user ? await Notification.countDocuments({ recipient: req.user._id, isRead: false }) : 0;
+        res.render('profile', {
+            profileUser: profileUser, isOwnProfile: req.user.username === profileUsername, areFriends, friendRequestStatus,
+            username: req.user.displayUsername, userId: req.user._id.toString(), activePage: null,
+            currentUser: req.user, unreadNotificationsCount: unreadNotificationsCount
+        });
+    } catch (error) { console.error("Error loading profile:", error); res.status(500).send("Terjadi kesalahan saat memuat profil."); }
+});
+
 app.get('/friends', requireAuth, async (req, res) => {
     try {
-        const userWithFriends = await User.findById(req.user._id).populate('friends', 'displayUsername profilePictureUrl online lastSeen');
-        const pendingRequestsSent = await FriendRequest.find({ requester: req.user._id, status: 'pending' }).populate('recipient', 'displayUsername profilePictureUrl');
-        const pendingRequestsReceived = await FriendRequest.find({ recipient: req.user._id, status: 'pending' }).populate('requester', 'displayUsername profilePictureUrl');
+        const userWithFriends = await User.findById(req.user._id).populate('friends', 'username displayName profilePictureUrl online lastSeen');
+        const pendingRequestsSent = await FriendRequest.find({ requester: req.user._id, status: 'pending' }).populate('recipient', 'username displayName profilePictureUrl');
+        const pendingRequestsReceived = await FriendRequest.find({ recipient: req.user._id, status: 'pending' }).populate('requester', 'username displayName profilePictureUrl');
         const friendIds = userWithFriends.friends.map(f => f._id);
         const sentRequestRecipientIds = pendingRequestsSent.map(r => r.recipient._id);
         const receivedRequestRequesterIds = pendingRequestsReceived.map(r => r.requester._id);
         const excludedIds = [req.user._id, ...friendIds, ...sentRequestRecipientIds, ...receivedRequestRequesterIds];
-        const allUsers = await User.find({ _id: { $nin: excludedIds } }).select('displayUsername username profilePictureUrl').limit(20);
+        const allUsers = await User.find({ _id: { $nin: excludedIds } }).select('username displayName profilePictureUrl').limit(20);
         const unreadNotificationsCount = req.user ? await Notification.countDocuments({ recipient: req.user._id, isRead: false }) : 0;
         res.render('friends', {
             username: req.user.displayUsername, userId: req.user._id.toString(), friends: userWithFriends.friends,
@@ -369,7 +412,7 @@ app.post('/friends/respond/:requestId', requireAuth, async (req, res) => {
 app.get('/notifications', requireAuth, async (req, res) => {
     try {
         const notifications = await Notification.find({ recipient: req.user._id })
-                                            .populate('sender', 'displayUsername profilePictureUrl')
+                                            .populate('sender', 'username displayName profilePictureUrl')
                                             .sort({ createdAt: -1 }).limit(50);
         const unreadNotificationsCount = notifications.filter(n => !n.isRead).length;
         res.render('notifications', {
@@ -405,13 +448,20 @@ app.get('/settings', requireAuth, async (req, res) => {
     });
 });
 app.post('/settings', requireAuth, async (req, res) => {
-    const { displayName, bio, email, newPassword, confirmNewPassword, profilePictureUrl } = req.body;
+    const { displayName, bio, email, newPassword, confirmNewPassword, profilePictureUrl, location, website, github, linkedin, twitter } = req.body;
     try {
         const userToUpdate = await User.findById(req.user._id);
         if (!userToUpdate) return res.redirect('/settings?error=Pengguna tidak ditemukan');
         if (displayName && displayName.trim() !== '') userToUpdate.displayName = displayName.trim();
         if (bio !== undefined) userToUpdate.bio = bio.trim();
         if (profilePictureUrl !== undefined) userToUpdate.profilePictureUrl = profilePictureUrl.trim();
+        if (location !== undefined) userToUpdate.location = location.trim();
+        if (website !== undefined) userToUpdate.website = website.trim();
+        userToUpdate.socialLinks = {
+            github: github ? github.trim() : (userToUpdate.socialLinks ? userToUpdate.socialLinks.github : ''),
+            linkedin: linkedin ? linkedin.trim() : (userToUpdate.socialLinks ? userToUpdate.socialLinks.linkedin : ''),
+            twitter: twitter ? twitter.trim() : (userToUpdate.socialLinks ? userToUpdate.socialLinks.twitter : ''),
+        };
         if (email && email.trim() !== '' && email.trim().toLowerCase() !== userToUpdate.email) {
             const emailExists = await User.findOne({ email: email.trim().toLowerCase(), _id: { $ne: userToUpdate._id } });
             if (emailExists) return res.redirect('/settings?error=Email sudah digunakan pengguna lain');
@@ -424,10 +474,7 @@ app.post('/settings', requireAuth, async (req, res) => {
         }
         await userToUpdate.save();
         res.redirect('/settings?success=Pengaturan berhasil disimpan');
-    } catch (error) {
-        console.error("Error updating settings:", error);
-        res.redirect('/settings?error=Gagal menyimpan pengaturan');
-    }
+    } catch (error) { console.error("Error updating settings:", error); res.redirect('/settings?error=Gagal menyimpan pengaturan'); }
 });
 
 const PORT = process.env.PORT || 3000;

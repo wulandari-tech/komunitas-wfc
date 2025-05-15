@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Profil <%= profileUser.displayUsername %> - UltraChat</title>
+    <%- include('partials/common_head_content') %>
+    <style>
+        .content-area { flex-grow: 1; display: flex; flex-direction: column; background-color: var(--bg-chat-area); }
+        .page-header-profile { padding: 20px 25px; background-color: var(--bg-header); border-bottom: 1px solid var(--border-color); display: flex; align-items: center; justify-content: space-between; }
+        .page-header-profile h1 { font-size: 1.5em; color: var(--text-primary); font-weight: 600; margin: 0; display: flex; align-items: center; }
+        .page-header-profile h1 i { margin-right: 10px; }
+        .page-content { padding: 25px; overflow-y: auto; flex-grow: 1; max-width: 900px; margin: 0 auto; }
+        .profile-card { background-color: var(--bg-header); border-radius: 12px; box-shadow: 0 8px 25px rgba(0,0,0,0.15); display: flex; flex-direction: column; align-items: center; padding: 30px 20px; text-align: center; }
+        .profile-avatar-wrapper { position: relative; margin-bottom: 20px; }
+        .profile-avatar { width: 150px; height: 150px; border-radius: 50%; background-size: cover; background-position: center; border: 5px solid var(--bg-chat-area); box-shadow: 0 0 15px rgba(0,0,0,0.2); display: flex; justify-content: center; align-items: center; }
+        .profile-avatar i.default-icon { font-size: 5em; color: var(--text-secondary); }
+        .online-status-indicator { width: 20px; height: 20px; background-color: var(--text-secondary); border: 2px solid var(--bg-header); border-radius: 50%; position: absolute; bottom: 10px; right: 10px; }
+        .online-status-indicator.online { background-color: var(--online-indicator); }
+        .profile-name { font-size: 1.8em; font-weight: 600; color: var(--text-primary); margin-bottom: 5px; }
+        .profile-username { font-size: 1em; color: var(--text-secondary); margin-bottom: 15px; }
+        .profile-bio { font-size: 0.95em; color: var(--text-primary); margin-bottom: 20px; line-height: 1.6; max-width: 600px; white-space: pre-wrap; }
+        .profile-details { width: 100%; margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--border-color); text-align: left; }
+        .profile-detail-item { display: flex; align-items: flex-start; margin-bottom: 12px; font-size: 0.9em; color: var(--text-secondary); }
+        .profile-detail-item i { width: 20px; text-align: center; margin-right: 15px; color: var(--accent-color); font-size: 1.1em; margin-top: 2px; }
+        .profile-detail-item span { color: var(--text-primary); }
+        .profile-detail-item a { color: var(--accent-color); text-decoration: none; word-break: break-all; }
+        .profile-detail-item a:hover { text-decoration: underline; }
+        .social-links-container i { font-size: 1.4em; margin-right: 10px; color: var(--text-secondary); transition: color 0.2s; }
+        .social-links-container a:hover i { color: var(--accent-color); }
+        .profile-actions { margin-top: 25px; }
+        .profile-actions .btn-primary, .profile-actions .btn-secondary, .profile-actions button { margin: 5px; font-size: 0.9em; padding: 8px 15px; }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <%- include('partials/navbar', { username: username, userId: userId, activePage: activePage, currentUser: currentUser, unreadNotificationsCount: unreadNotificationsCount }) %>
+        <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+        <main class="content-area">
+            <div class="page-header-profile">
+                <h1><i class="fas fa-id-badge"></i> Profil Pengguna</h1>
+                <button class="menu-toggle-btn-placeholder" id="menuToggleBtn" title="Buka Menu"><i class="fas fa-bars"></i></button>
+            </div>
+
+            <div class="page-content">
+                <% if (profileUser) { %>
+                    <div class="profile-card">
+                        <div class="profile-avatar-wrapper">
+                            <div class="profile-avatar" style="background-image: url('<%= profileUser.profilePictureUrl && profileUser.profilePictureUrl !== '' ? profileUser.profilePictureUrl : '' %>');">
+                                <% if (!profileUser.profilePictureUrl || profileUser.profilePictureUrl === '') { %>
+                                    <i class="fas fa-user-astronaut default-icon"></i>
+                                <% } %>
+                            </div>
+                            <div class="online-status-indicator <%= profileUser.online ? 'online' : '' %>" title="<%= profileUser.online ? 'Online' : (profileUser.lastSeen ? 'Terakhir dilihat: ' + new Date(profileUser.lastSeen).toLocaleString('id-ID') : 'Offline') %>"></div>
+                        </div>
+                        <h2 class="profile-name"><%= profileUser.displayUsername %></h2>
+                        <p class="profile-username">@<%= profileUser.username %></p>
+
+                        <% if (profileUser.bio && profileUser.bio.trim() !== '') { %>
+                            <p class="profile-bio"><%= profileUser.bio %></p>
+                        <% } else { %>
+                            <p class="profile-bio" style="font-style: italic; color: var(--text-secondary);">Pengguna ini belum mengatur bio.</p>
+                        <% } %>
+
+                        <div class="profile-details">
+                            <% if (profileUser.location && profileUser.location.trim() !== '') { %>
+                                <div class="profile-detail-item">
+                                    <i class="fas fa-map-marker-alt"></i> <span><%= profileUser.location %></span>
+                                </div>
+                            <% } %>
+                            <% if (profileUser.website && profileUser.website.trim() !== '') { %>
+                                <div class="profile-detail-item">
+                                    <i class="fas fa-link"></i> <a href="<%= profileUser.website.startsWith('http') ? profileUser.website : '//' + profileUser.website %>" target="_blank" rel="noopener noreferrer"><%= profileUser.website %></a>
+                                </div>
+                            <% } %>
+                            <div class="profile-detail-item">
+                                <i class="fas fa-calendar-alt"></i> <span>Bergabung pada <%= profileUser.formattedJoinedDate %></span>
+                            </div>
+                            <% if (profileUser.socialLinks && (profileUser.socialLinks.github || profileUser.socialLinks.linkedin || profileUser.socialLinks.twitter)) { %>
+                                <div class="profile-detail-item social-links-container">
+                                    <i class="fas fa-globe"></i>
+                                    <div>
+                                        <% if (profileUser.socialLinks.github) { %><a href="https://github.com/<%= profileUser.socialLinks.github %>" target="_blank" title="GitHub"><i class="fab fa-github"></i></a><% } %>
+                                        <% if (profileUser.socialLinks.linkedin) { %><a href="https://linkedin.com/in/<%= profileUser.socialLinks.linkedin %>" target="_blank" title="LinkedIn"><i class="fab fa-linkedin"></i></a><% } %>
+                                        <% if (profileUser.socialLinks.twitter) { %><a href="https://twitter.com/<%= profileUser.socialLinks.twitter %>" target="_blank" title="Twitter/X"><i class="fab fa-twitter"></i></a><% } %>
+                                    </div>
+                                </div>
+                            <% } %>
+                        </div>
+
+                        <div class="profile-actions">
+                            <% if (isOwnProfile) { %>
+                                <a href="/settings" class="btn-primary"><i class="fas fa-edit"></i> Edit Profil</a>
+                            <% } else { %>
+                                <% if (areFriends) { %>
+                                    <button class="btn-secondary" disabled><i class="fas fa-user-check"></i> Berteman</button>
+                                    <%# Form untuk hapus teman bisa ditambahkan di sini %>
+                                <% } else if (friendRequestStatus) { %>
+                                    <% if (friendRequestStatus.isRequester) { %>
+                                        <button class="btn-secondary" disabled><i class="fas fa-clock"></i> Permintaan Terkirim</button>
+                                    <% } else if (friendRequestStatus.status === 'pending') { %>
+                                        <form action="/friends/respond/<%= friendRequestStatus.requestId %>" method="POST" style="display:inline;">
+                                            <input type="hidden" name="action" value="accept">
+                                            <button type="submit" class="btn-primary"><i class="fas fa-user-plus"></i> Terima Permintaan</button>
+                                        </form>
+                                        <form action="/friends/respond/<%= friendRequestStatus.requestId %>" method="POST" style="display:inline;">
+                                            <input type="hidden" name="action" value="decline">
+                                            <button type="submit" class="btn-secondary"><i class="fas fa-user-times"></i> Tolak</button>
+                                        </form>
+                                    <% } %>
+                                <% } else { %>
+                                     <form action="/friends/request/<%= profileUser._id %>" method="POST"><button type="submit" class="btn-primary"><i class="fas fa-user-plus"></i> Tambah Teman</button></form>
+                                <% } %>
+                                <%# Tombol untuk kirim pesan langsung bisa ditambahkan di sini %>
+                            <% } %>
+                        </div>
+                    </div>
+                <% } else { %>
+                    <p class="alert alert-danger">Profil pengguna tidak ditemukan.</p>
+                <% } %>
+            </div>
+        </main>
+    </div>
+    <%- include('partials/common_scripts') %>
+</body>
+</html>
