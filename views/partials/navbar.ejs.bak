@@ -35,7 +35,7 @@
 <nav class="main-navbar" id="mainNavbar">
     <div class="navbar-header">
         <button class="navbar-close-btn" id="navbarCloseBtn" title="Tutup Menu"><i class="fas fa-times"></i></button>
-        <a href="/chat" class="brand-logo"><i class="fas fa-meteor"></i>komunitas-wfc</a>
+        <a href="/chat" class="brand-logo"><i class="fas fa-meteor"></i>UltraChat</a>
     </div>
     <div class="navbar-scroll-container">
         <div class="user-profile-nav">
