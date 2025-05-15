@@ -191,40 +191,62 @@ app.get('/logout', requireAuth, async (req, res) => {
     res.redirect('/login');
 });
 
-// server.js (Contoh di GET /chat)
 app.get('/chat', requireAuth, async (req, res) => {
     try {
         const messages = await Message.find({ channelId: null }).populate('userId', 'username displayName profilePictureUrl').sort({ timestamp: 1 }).limit(100);
         const unreadNotificationsCount = req.user ? await Notification.countDocuments({ recipient: req.user._id, isRead: false }) : 0;
         res.render('chat', {
-            messages: messages,
-            username: req.user.displayUsername, // Untuk tampilan nama di header/title
-            userId: req.user._id.toString(),    // ID user yang login
-            activePage: 'chat',
-            currentChannel: null,
-            currentUser: req.user,             // Objek user yang login (untuk navbar profil, dll)
-            unreadNotificationsCount: unreadNotificationsCount // Untuk badge notif di navbar
+            messages: messages, username: req.user.displayUsername, userId: req.user._id.toString(),
+            activePage: 'chat', currentChannel: null, currentUser: req.user,
+            unreadNotificationsCount: unreadNotificationsCount
         });
-    } catch (err) {
-        console.error("Error loading general chat:", err);
-        res.status(500).send("Error loading general chat. Check server logs.");
-    }
+    } catch (err) { console.error("Error loading general chat:", err); res.status(500).send("Error loading general chat. Check server logs."); }
 });
 
-// PASTIKAN ANDA MELAKUKAN HAL SERUPA UNTUK ROUTE LAIN:
-// GET /channels
-// GET /channels/:id
-// GET /friends
-// GET /notifications
-// GET /settings
-// GET /profile/:usernameParam
-// Masing-masing route ini harus mengirimkan:
-// - username: req.user.displayUsername
-// - userId: req.user._id.toString()
-// - activePage: 'nama_halaman_aktif'
-// - currentUser: req.user
-// - unreadNotificationsCount: (hasil query Notification.countDocuments)
-// - ...dan data spesifik halaman lainnya
+app.post('/messages', requireAuth, async (req, res) => {
+    const { text, channelId } = req.body;
+    if (!text || text.trim() === '') return res.status(400).json({ error: 'Pesan tidak boleh kosong' });
+    try {
+        let targetChannel = null;
+        if (channelId && channelId !== 'null' && mongoose.Types.ObjectId.isValid(channelId)) {
+            targetChannel = await Channel.findById(channelId);
+            if (!targetChannel) return res.status(404).json({ error: 'Channel tidak ditemukan' });
+            const isMember = targetChannel.members.some(memberId => memberId.equals(req.user._id)) || targetChannel.creator.equals(req.user._id);
+            if (targetChannel.isPrivate && !isMember) return res.status(403).json({ error: 'Anda bukan anggota channel privat ini' });
+        }
+        const newMessage = new Message({
+            user: req.user.displayUsername, userId: req.user._id, text: text.trim(),
+            channelId: targetChannel ? targetChannel._id : null
+        });
+        const savedMessage = await newMessage.save();
+        const populatedMessage = await Message.findById(savedMessage._id).populate('userId', 'username displayName profilePictureUrl'); // Pastikan username di-populate
+        const messageData = {
+            _id: populatedMessage._id.toString(),
+            user: populatedMessage.user, // Ini dari displayUsername saat save
+            text: populatedMessage.text,
+            userId: populatedMessage.userId._id.toString(), // ID Pengguna
+            userUsername: populatedMessage.userId.username, // Username asli untuk link profil
+            userDisplayUsername: populatedMessage.userId.displayUsername,
+            userProfilePictureUrl: populatedMessage.userId.profilePictureUrl,
+            channelId: populatedMessage.channelId ? populatedMessage.channelId.toString() : null,
+            timestamp: populatedMessage.timestamp,
+            isEdited: populatedMessage.isEdited
+        };
+        const fayePublishPath = targetChannel ? `/channels/${targetChannel._id}/messages` : '/messages/new';
+        fayeClient.publish(fayePublishPath, messageData);
+        if (targetChannel) {
+            targetChannel.members.forEach(memberId => {
+                if (!memberId.equals(req.user._id)) {
+                    createAndSendNotification(memberId, 'new_message_in_channel',
+                        `${req.user.displayUsername} mengirim pesan di #${targetChannel.name}`,
+                        `/channels/${targetChannel._id}`, req.user._id, targetChannel._id);
+                }
+            });
+        }
+        res.status(201).json(populatedMessage);
+    } catch (err) { console.error("Error sending message:", err); res.status(500).json({ error: 'Gagal mengirim pesan' }); }
+});
+
 app.get('/channels', requireAuth, async (req, res) => {
     try {
         const channels = await Channel.find({ $or: [{ isPrivate: false }, { members: req.user._id }, { creator: req.user._id }]})
