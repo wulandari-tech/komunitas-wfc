@@ -6,7 +6,6 @@ const bodyParser = require('body-parser');
 const cookieParser = require('cookie-parser');
 const bcryptjs = require('bcryptjs');
 const path = require('path');
-// const Pusher = require('pusher'); // Dihapus
 
 const app = express();
 const server = http.createServer(app);
@@ -16,9 +15,6 @@ const bayeux = new faye.NodeAdapter({ mount: '/faye', timeout: 45 });
 bayeux.attach(server);
 const fayeClient = bayeux.getClient();
 
-// Inisialisasi Pusher Dihapus
-// const pusher = new Pusher({ ... });
-
 mongoose.connect(process.env.MONGODB_URI || 'mongodb+srv://zanssxploit:pISqUYgJJDfnLW9b@cluster0.fgram.mongodb.net/restdb?retryWrites=true&w=majority', {
     useNewUrlParser: true,
     useUnifiedTopology: true
@@ -26,7 +22,6 @@ mongoose.connect(process.env.MONGODB_URI || 'mongodb+srv://zanssxploit:pISqUYgJJ
 .then(() => console.log('MongoDB Connected'))
 .catch(err => console.error('MongoDB Connection Error:', err));
 
-// Skema Model (tetap sama seperti sebelumnya)
 const userSchema = new mongoose.Schema({
     username: { type: String, required: true, unique: true, trim: true, lowercase: true },
     password: { type: String, required: true },
@@ -117,14 +112,13 @@ async function createAndSendNotification(recipientId, type, message, link = '#',
         await notification.save();
         const notifChannelFaye = `/users/${recipientId}/notifications`;
         fayeClient.publish(notifChannelFaye, { type: 'new_notification', notification });
-        // pusher.trigger(...); // Dihapus
     } catch (error) {
         console.error("Error creating notification:", error);
     }
 }
 
 app.get('/', (req, res) => req.cookies.username ? res.redirect('/chat') : res.redirect('/login'));
-app.get('/login', (req, res) => req.cookies.username ? res.redirect('/chat') : res.render('login', { error: null }));
+app.get('/login', (req, res) => req.cookies.username ? res.redirect('/chat') : res.render('login', { error: null, success: req.query.success }));
 app.post('/login', async (req, res) => {
     const { username, password } = req.body;
     if (!username || !password) return res.render('login', { error: 'Nama pengguna dan password harus diisi.' });
@@ -139,28 +133,48 @@ app.post('/login', async (req, res) => {
     } catch (err) { console.error("Login error:", err); res.render('login', { error: 'Terjadi kesalahan server.' }); }
 });
 app.get('/register', (req, res) => req.cookies.username ? res.redirect('/chat') : res.render('register', { error: null, success: null }));
+
 app.post('/register', async (req, res) => {
     const { username, password, confirmPassword, email, displayName } = req.body;
-    if (!username || !password || !confirmPassword) return res.render('register', { error: 'Semua field wajib diisi.', success: null });
-    if (password !== confirmPassword) return res.render('register', { error: 'Password tidak cocok.', success: null });
-    if (password.length < 6) return res.render('register', { error: 'Password minimal 6 karakter.', success: null });
+    if (!username || !password || !confirmPassword) {
+        return res.render('register', { error: 'Username, password, dan konfirmasi password wajib diisi.', success: null, oldInput: req.body });
+    }
+    if (password !== confirmPassword) {
+        return res.render('register', { error: 'Password dan konfirmasi password tidak cocok.', success: null, oldInput: req.body });
+    }
+    if (password.length < 6) {
+        return res.render('register', { error: 'Password minimal 6 karakter.', success: null, oldInput: req.body });
+    }
     try {
-        let existingUser = await User.findOne({ username: username.toLowerCase() });
-        if (existingUser) return res.render('register', { error: 'Nama pengguna sudah ada.', success: null });
-        if (email && email.trim() !== '') {
-            existingUser = await User.findOne({ email: email.toLowerCase() });
-            if (existingUser) return res.render('register', { error: 'Email sudah terdaftar.', success: null });
+        const existingUserByUsername = await User.findOne({ username: username.toLowerCase() });
+        if (existingUserByUsername) {
+            return res.render('register', { error: 'Nama pengguna sudah digunakan.', success: null, oldInput: req.body });
         }
-        const hashedPassword = await bcryptjs.hash(password, saltRounds);
-        const newUser = new User({
-            username: username.toLowerCase(), password: hashedPassword,
-            email: email ? email.toLowerCase().trim() : undefined,
+
+        const newUserObject = {
+            username: username.toLowerCase().trim(),
+            password: await bcryptjs.hash(password, saltRounds),
             displayName: displayName ? displayName.trim() : username.trim()
-        });
+        };
+
+        if (email && email.trim() !== '') {
+            const trimmedEmail = email.toLowerCase().trim();
+            const existingUserByEmail = await User.findOne({ email: trimmedEmail });
+            if (existingUserByEmail) {
+                return res.render('register', { error: 'Email sudah terdaftar.', success: null, oldInput: req.body });
+            }
+            newUserObject.email = trimmedEmail;
+        }
+
+        const newUser = new User(newUserObject);
         await newUser.save();
-        res.render('register', { error: null, success: 'Registrasi berhasil! Silakan login.' });
-    } catch (err) { console.error("Register error:", err); res.render('register', { error: 'Terjadi kesalahan saat registrasi.', success: null }); }
+        res.redirect('/login?success=Registrasi berhasil! Silakan login.');
+    } catch (err) {
+        console.error("Register error:", err);
+        res.render('register', { error: 'Terjadi kesalahan saat registrasi. Coba lagi.', success: null, oldInput: req.body });
+    }
 });
+
 app.get('/logout', requireAuth, async (req, res) => {
     try {
         if (req.user) { req.user.online = false; req.user.lastSeen = new Date(); await req.user.save(); }
@@ -175,7 +189,6 @@ app.get('/chat', requireAuth, async (req, res) => {
         const unreadNotificationsCount = req.user ? await Notification.countDocuments({ recipient: req.user._id, isRead: false }) : 0;
         res.render('chat', {
             messages: messages, username: req.user.displayUsername, userId: req.user._id.toString(),
-            // pusherKey dan pusherCluster dihapus dari data yang dikirim ke EJS
             activePage: 'chat', currentChannel: null, currentUser: req.user,
             unreadNotificationsCount: unreadNotificationsCount
         });
@@ -208,8 +221,6 @@ app.post('/messages', requireAuth, async (req, res) => {
         };
         const fayePublishPath = targetChannel ? `/channels/${targetChannel._id}/messages` : '/messages/new';
         fayeClient.publish(fayePublishPath, messageData);
-        // pusher.trigger(...); // Dihapus
-
         if (targetChannel) {
             targetChannel.members.forEach(memberId => {
                 if (!memberId.equals(req.user._id)) {
@@ -260,9 +271,8 @@ app.get('/channels/:id', requireAuth, async (req, res) => {
         if (channel.isPrivate && !isMember) return res.status(403).render('403', { message: 'Akses ditolak ke channel privat ini', username: req.user.displayUsername, currentUser: req.user });
         const messages = await Message.find({ channelId: channel._id }).populate('userId', 'displayUsername profilePictureUrl').sort({ timestamp: 1 }).limit(100);
         const unreadNotificationsCount = req.user ? await Notification.countDocuments({ recipient: req.user._id, isRead: false }) : 0;
-        res.render('chat', { // Menggunakan template chat.ejs untuk detail channel
+        res.render('chat', {
             username: req.user.displayUsername, userId: req.user._id.toString(), messages, isMember,
-            // pusherKey dan pusherCluster dihapus
             activePage: 'channels', currentChannel: channel, currentUser: req.user,
             unreadNotificationsCount: unreadNotificationsCount
         });
@@ -414,12 +424,14 @@ app.post('/settings', requireAuth, async (req, res) => {
         }
         await userToUpdate.save();
         res.redirect('/settings?success=Pengaturan berhasil disimpan');
-    } catch (error) { console.error("Error updating settings:", error); res.redirect('/settings?error=Gagal menyimpan pengaturan'); }
+    } catch (error) {
+        console.error("Error updating settings:", error);
+        res.redirect('/settings?error=Gagal menyimpan pengaturan');
+    }
 });
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
     console.log(`Server running on http://localhost:${PORT}`);
     console.log(`Faye server mounted at /faye`);
-    console.log("Pusher integration has been removed/disabled in this version.");
 });
