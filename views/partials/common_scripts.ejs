@@ -1,0 +1,37 @@
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const menuToggleBtn = document.getElementById('menuToggleBtn') || document.querySelector('.menu-toggle-btn-placeholder');
+        const sidebarOverlay = document.getElementById('sidebarOverlay');
+        const navbarCloseBtn = document.getElementById('navbarCloseBtn'); // Ada di navbar.ejs
+
+        function openSidebar() {
+            document.body.classList.add('sidebar-open');
+        }
+        function closeSidebar() {
+            document.body.classList.remove('sidebar-open');
+        }
+
+        if (menuToggleBtn) {
+            menuToggleBtn.addEventListener('click', (e) => {
+                e.stopPropagation(); // Mencegah event bubble jika tombol di dalam elemen lain
+                document.body.classList.toggle('sidebar-open');
+            });
+        }
+        if (sidebarOverlay) {
+            sidebarOverlay.addEventListener('click', closeSidebar);
+        }
+        if (navbarCloseBtn) {
+            navbarCloseBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                closeSidebar();
+            });
+        }
+
+        // Global escape key to close sidebar
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape' && document.body.classList.contains('sidebar-open')) {
+                closeSidebar();
+            }
+        });
+    });
+</script>

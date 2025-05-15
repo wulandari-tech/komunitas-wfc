@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teman - <%= username %></title>
+    <%- include('partials/common_head_content') %>
+    <style>
+        .content-area { flex-grow: 1; display: flex; flex-direction: column; background-color: var(--bg-chat-area); }
+        .page-header { display: flex; justify-content: space-between; align-items: center; padding: 20px 25px; background-color: var(--bg-header); border-bottom: 1px solid var(--border-color); }
+        .page-header h1 { font-size: 1.5em; color: var(--text-primary); font-weight: 600; margin: 0; display: flex; align-items: center; }
+        .page-header h1 i { margin-right: 10px; }
+        .page-content { padding: 25px; overflow-y: auto; flex-grow: 1; }
+        .tabs { display: flex; margin-bottom: 20px; border-bottom: 1px solid var(--border-color); }
+        .tab-link { padding: 10px 20px; cursor: pointer; color: var(--text-secondary); font-weight: 500; border-bottom: 3px solid transparent; transition: color 0.2s, border-color 0.2s; }
+        .tab-link.active { color: var(--accent-color); border-bottom-color: var(--accent-color); }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .user-list { list-style: none; padding: 0; margin: 0; }
+        .user-item { background-color: var(--bg-header); border-radius: 8px; margin-bottom: 10px; padding: 12px 18px; display: flex; justify-content: space-between; align-items: center; }
+        .user-info { display: flex; align-items: center; }
+        .user-avatar { width: 40px; height: 40px; border-radius: 50%; background-color: var(--bg-input); margin-right: 12px; background-size: cover; background-position: center; display: flex; justify-content: center; align-items: center;}
+        .user-avatar i { font-size: 1.5em; color: var(--text-secondary); }
+        .user-details h4 { margin: 0; font-size: 1.1em; color: var(--text-primary); }
+        .user-details p { margin: 0; font-size: 0.85em; color: var(--text-secondary); }
+        .user-actions button, .user-actions a { background-color: var(--accent-color); color: white; padding: 6px 12px; border: none; border-radius: 5px; text-decoration: none; font-size: 0.85em; margin-left: 8px; cursor: pointer; transition: background-color 0.2s ease; }
+        .user-actions button.secondary, .user-actions a.secondary { background-color: var(--bg-input); color: var(--text-secondary); }
+        .user-actions button:hover, .user-actions a:hover { opacity: 0.8; }
+        .search-container { margin-bottom: 20px; }
+        .search-container input { width: 100%; padding: 10px 15px; background-color: var(--bg-input); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-primary); font-size: 1em; }
+        .alert { padding: 10px 15px; border-radius: 6px; margin-bottom: 15px; font-size: 0.9em; }
+        .alert-danger { background-color: rgba(220,53,69,0.2); color: #f8d7da; border: 1px solid var(--danger-color); }
+        .alert-success { background-color: rgba(40,167,69,0.2); color: #d4edda; border: 1px solid var(--success-color); }
+    </style>
+</head>
+<body>
+    <div class="chat-app-container">
+        <%- include('partials/navbar', { username: username, userId: userId, activePage: activePage, currentUser: currentUser, unreadNotificationsCount: unreadNotificationsCount }) %>
+        <div class="sidebar-overlay" id="sidebarOverlay"></div>
+        <main class="content-area">
+            <div class="page-header"><h1><i class="fas fa-users"></i> Teman & Permintaan</h1></div>
+            <div class="page-content">
+                <% if (locals.error) { %><div class="alert alert-danger"><%= error %></div><% } %>
+                <% if (locals.success) { %><div class="alert alert-success"><%= success %></div><% } %>
+
+                <div class="tabs">
+                    <span class="tab-link active" data-tab="friends-list">Daftar Teman (<%= friends ? friends.length : 0 %>)</span>
+                    <span class="tab-link" data-tab="requests-received">Permintaan Diterima (<%= requestsReceived ? requestsReceived.length : 0 %>)</span>
+                    <span class="tab-link" data-tab="requests-sent">Permintaan Terkirim (<%= requestsSent ? requestsSent.length : 0 %>)</span>
+                    <span class="tab-link" data-tab="find-friends">Cari Teman</span>
+                </div>
+
+                <div id="friends-list" class="tab-content active">
+                    <h3>Teman Anda</h3>
+                    <% if (friends && friends.length > 0) { %>
+                        <ul class="user-list">
+                            <% friends.forEach(friend => { %>
+                                <li class="user-item">
+                                    <div class="user-info">
+                                        <div class="user-avatar" style="background-image: url('<%= friend.profilePictureUrl && friend.profilePictureUrl !== '' ? friend.profilePictureUrl : '' %>');">
+                                            <% if (!friend.profilePictureUrl || friend.profilePictureUrl === '') { %><i class="fas fa-user"></i><% } %>
+                                        </div>
+                                        <div class="user-details">
+                                            <h4><%= friend.displayUsername %></h4>
+                                            <p style="color: <%= friend.online ? 'var(--online-indicator)' : 'var(--text-secondary)' %>"><%= friend.online ? 'Online' : (friend.lastSeen ? 'Terakhir online: ' + new Date(friend.lastSeen).toLocaleString('id-ID') : 'Offline') %></p>
+                                        </div>
+                                    </div>
+                                    <div class="user-actions">
+                                        <a href="/chat/direct/<%= friend._id %>" class="secondary" title="Kirim Pesan"><i class="fas fa-comment-dots"></i></a>
+                                        <form action="/friends/remove/<%= friend._id %>" method="POST" style="display:inline;"><button type="submit" class="secondary" title="Hapus Teman" onclick="return confirm('Anda yakin ingin menghapus teman ini?');"><i class="fas fa-user-times"></i></button></form>
+                                    </div>
+                                </li>
+                            <% }); %>
+                        </ul>
+                    <% } else { %><p>Anda belum memiliki teman.</p><% } %>
+                </div>
+
+                <div id="requests-received" class="tab-content">
+                    <h3>Permintaan Pertemanan Diterima</h3>
+                    <% if (requestsReceived && requestsReceived.length > 0) { %>
+                        <ul class="user-list">
+                            <% requestsReceived.forEach(reqItem => { %>
+                                <li class="user-item">
+                                    <div class="user-info">
+                                        <div class="user-avatar" style="background-image: url('<%= reqItem.requester.profilePictureUrl && reqItem.requester.profilePictureUrl !== '' ? reqItem.requester.profilePictureUrl : '' %>');">
+                                            <% if (!reqItem.requester.profilePictureUrl || reqItem.requester.profilePictureUrl === '') { %><i class="fas fa-user"></i><% } %>
+                                        </div>
+                                        <div class="user-details"><h4><%= reqItem.requester.displayUsername %></h4></div>
+                                    </div>
+                                    <div class="user-actions">
+                                        <form action="/friends/respond/<%= reqItem._id %>" method="POST" style="display:inline;"><input type="hidden" name="action" value="accept"><button type="submit"><i class="fas fa-check"></i> Terima</button></form>
+                                        <form action="/friends/respond/<%= reqItem._id %>" method="POST" style="display:inline;"><input type="hidden" name="action" value="decline"><button type="submit" class="secondary"><i class="fas fa-times"></i> Tolak</button></form>
+                                    </div>
+                                </li>
+                            <% }); %>
+                        </ul>
+                    <% } else { %><p>Tidak ada permintaan pertemanan yang diterima.</p><% } %>
+                </div>
+
+                <div id="requests-sent" class="tab-content">
+                    <h3>Permintaan Pertemanan Terkirim</h3>
+                    <% if (requestsSent && requestsSent.length > 0) { %>
+                        <ul class="user-list">
+                            <% requestsSent.forEach(reqItem => { %>
+                                <li class="user-item">
+                                    <div class="user-info">
+                                        <div class="user-avatar" style="background-image: url('<%= reqItem.recipient.profilePictureUrl && reqItem.recipient.profilePictureUrl !== '' ? reqItem.recipient.profilePictureUrl : '' %>');">
+                                            <% if (!reqItem.recipient.profilePictureUrl || reqItem.recipient.profilePictureUrl === '') { %><i class="fas fa-user"></i><% } %>
+                                        </div>
+                                        <div class="user-details"><h4><%= reqItem.recipient.displayUsername %></h4></div>
+                                    </div>
+                                    <div class="user-actions"><button class="secondary" disabled><i class="fas fa-clock"></i> Tertunda</button></div>
+                                </li>
+                            <% }); %>
+                        </ul>
+                    <% } else { %><p>Tidak ada permintaan pertemanan yang terkirim.</p><% } %>
+                </div>
+
+                <div id="find-friends" class="tab-content">
+                    <h3>Cari Pengguna Lain</h3>
+                    <div class="search-container">
+                        <input type="text" id="searchUsersInput" placeholder="Ketik nama pengguna untuk mencari...">
+                    </div>
+                    <ul class="user-list" id="allUsersList">
+                        <% if (allUsers && allUsers.length > 0) { %>
+                            <% allUsers.forEach(userFound => { %>
+                                <li class="user-item">
+                                    <div class="user-info">
+                                        <div class="user-avatar" style="background-image: url('<%= userFound.profilePictureUrl && userFound.profilePictureUrl !== '' ? userFound.profilePictureUrl : '' %>');">
+                                            <% if (!userFound.profilePictureUrl || userFound.profilePictureUrl === '') { %><i class="fas fa-user"></i><% } %>
+                                        </div>
+                                        <div class="user-details"><h4><%= userFound.displayUsername %> <small>(@<%= userFound.username %>)</small></h4></div>
+                                    </div>
+                                    <div class="user-actions">
+                                        <form action="/friends/request/<%= userFound._id %>" method="POST"><button type="submit"><i class="fas fa-user-plus"></i> Tambah Teman</button></form>
+                                    </div>
+                                </li>
+                            <% }); %>
+                        <% } else { %><p>Tidak ada pengguna lain yang ditemukan.</p><% } %>
+                    </ul>
+                </div>
+            </div>
+        </main>
+    </div>
+    <%- include('partials/common_scripts') %>
+    <script>
+        document.querySelectorAll('.tab-link').forEach(link => {
+            link.addEventListener('click', () => {
+                document.querySelectorAll('.tab-link').forEach(l => l.classList.remove('active'));
+                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                link.classList.add('active');
+                document.getElementById(link.dataset.tab).classList.add('active');
+            });
+        });
+        // Tambahkan JS untuk live search jika diinginkan
+    </script>
+</body>
+</html>

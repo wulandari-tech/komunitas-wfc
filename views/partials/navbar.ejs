@@ -1,0 +1,69 @@
+<style>
+    .main-navbar { width: 280px; background-color: var(--bg-main, #1a1a2e); display: flex; flex-direction: column; height: 100%; }
+    .navbar-scroll-container { padding: 20px 15px; overflow-y: auto; flex-grow: 1; }
+    .navbar-scroll-container::-webkit-scrollbar { width: 6px; }
+    .navbar-scroll-container::-webkit-scrollbar-track { background: rgba(0,0,0,0.1); }
+    .navbar-scroll-container::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb, #50547b); border-radius: 3px; }
+    .navbar-header { padding-bottom: 15px; margin-bottom: 15px; border-bottom: 1px solid var(--border-color, #404363); text-align: center; position: relative; }
+    .navbar-close-btn { position: absolute; top: 10px; right: 0px; background: none; border: none; color: var(--text-secondary, #a0a0b0); font-size: 1.5em; cursor: pointer; padding: 5px; line-height: 1; display: none; }
+    .navbar-close-btn:hover { color: var(--accent-color, #ff6b6b); }
+    .navbar-header .brand-logo { font-size: 1.7em; color: var(--text-primary, #e0e0e0); text-decoration: none; font-weight: 700; display: flex; align-items: center; justify-content: center; transition: color 0.3s ease; padding: 10px 0; }
+    .navbar-header .brand-logo i { margin-right: 10px; color: var(--accent-color, #ff6b6b); }
+    .navbar-header .brand-logo:hover { color: var(--accent-color, #ff6b6b); }
+    .user-profile-nav { text-align: center; margin-bottom: 20px; padding: 10px 0; }
+    .user-profile-nav .avatar-nav { width: 70px; height: 70px; border-radius: 50%; background-color: var(--bg-input); display: flex; justify-content: center; align-items: center; margin: 0 auto 10px auto; font-size: 2em; color: var(--text-primary); background-size: cover; background-position: center; }
+    .user-profile-nav .avatar-nav i { transform: translateY(1px); }
+    .user-profile-nav h3 { color: var(--text-primary, #e0e0e0); font-size: 1.05em; font-weight: 500; margin-bottom: 3px; word-break: break-all; }
+    .user-profile-nav p.status { color: var(--online-indicator, #2ecc71); font-size: 0.8em; font-weight: 500; }
+    .user-profile-nav p.status i { margin-right: 4px; }
+    .main-menu-nav ul { list-style: none; padding: 0; margin: 0; }
+    .main-menu-nav ul li a { display: flex; align-items: center; padding: 13px 15px; color: var(--text-secondary, #a0a0b0); text-decoration: none; border-radius: 8px; margin-bottom: 8px; transition: background-color 0.25s ease, color 0.25s ease, transform 0.1s ease; font-weight: 500; font-size: 0.95em; position: relative; }
+    .main-menu-nav ul li a i { margin-right: 15px; width: 22px; text-align: center; font-size: 1.15em; transition: transform 0.2s ease; }
+    .main-menu-nav ul li a small { font-size: 0.8em; opacity: 0.7; margin-left: 5px; }
+    .main-menu-nav ul li a .badge { position: absolute; right: 15px; top: 50%; transform: translateY(-50%); background-color: var(--danger-color, #dc3545); color: white; font-size: 0.7em; padding: 2px 6px; border-radius: 10px; font-weight: bold; }
+    .main-menu-nav ul li a:hover { background-color: var(--accent-color, #ff6b6b); color: white; transform: translateX(3px); }
+    .main-menu-nav ul li a:hover i { transform: scale(1.05); }
+    .main-menu-nav ul li a.active { background-color: var(--accent-color, #ff6b6b); color: white; font-weight: 600; box-shadow: 0 3px 8px rgba(0,0,0,0.15); }
+    .main-menu-nav ul li a.active i { transform: scale(1.05); }
+    .main-menu-nav ul li a.logout-btn-nav { margin-top: 15px; }
+    .main-menu-nav ul li a.logout-btn-nav:hover { background-color: var(--accent-hover, #ff4757); }
+    @media (max-width: 768px) { .main-navbar .navbar-close-btn { display: block; } }
+</style>
+
+<nav class="main-navbar" id="mainNavbar">
+    <div class="navbar-header">
+        <button class="navbar-close-btn" id="navbarCloseBtn" title="T
+        tutup Menu"><i class="fas fa-times"></i></button>
+        <a href="/chat" class="brand-logo"><i class="fas fa-meteor"></i>KOMUNITAS-WFC</a>
+    </div>
+    <div class="navbar-scroll-container">
+        <div class="user-profile-nav">
+            <div class="avatar-nav" style="background-image: url('<%= locals.currentUser && locals.currentUser.profilePictureUrl && locals.currentUser.profilePictureUrl !== '' ? locals.currentUser.profilePictureUrl : '/default-avatar.png' %>');">
+                <% if (!locals.currentUser || !locals.currentUser.profilePictureUrl || locals.currentUser.profilePictureUrl === '') { %>
+                    <i class="fas fa-user-astronaut"></i>
+                <% } %>
+            </div>
+            <h3><%= locals.username || 'Pengguna' %></h3>
+            <p class="status"><i class="fas fa-circle"></i> Online</p>
+        </div>
+
+        <% const currentPage = locals.activePage || 'chat'; %>
+        <div class="main-menu-nav">
+            <ul>
+                <li><a href="/chat" class="<%= currentPage === 'chat' ? 'active' : '' %>" title="Diskusi Umum"><i class="fas fa-comments"></i> Diskusi Umum</a></li>
+                <li><a href="/channels" class="<%= currentPage === 'channels' ? 'active' : '' %>" title="Channels"><i class="fas fa-hashtag"></i> Channels</a></li>
+                <li><a href="/friends" class="<%= currentPage === 'friends' ? 'active' : '' %>" title="Teman"><i class="fas fa-users"></i> Teman</a></li>
+                <li>
+                    <a href="/notifications" class="<%= currentPage === 'notifications' ? 'active' : '' %>" title="Notifikasi">
+                        <i class="fas fa-bell"></i> Notifikasi
+                        <% if (locals.unreadNotificationsCount && locals.unreadNotificationsCount > 0) { %>
+                            <span class="badge"><%= locals.unreadNotificationsCount %></span>
+                        <% } %>
+                    </a>
+                </li>
+                <li><a href="/settings" class="<%= currentPage === 'settings' ? 'active' : '' %>" title="Pengaturan Akun"><i class="fas fa-user-cog"></i> Pengaturan</a></li>
+                <li><a href="/logout" class="logout-btn-nav" title="Keluar dari Akun"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
+            </ul>
+        </div>
+    </div>
+</nav>

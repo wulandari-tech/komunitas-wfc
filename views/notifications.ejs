@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Notifikasi - <%= username %></title>
+    <%- include('partials/common_head_content') %>
+    <style>
+        .content-area { flex-grow: 1; display: flex; flex-direction: column; background-color: var(--bg-chat-area); }
+        .page-header { display: flex; justify-content: space-between; align-items: center; padding: 20px 25px; background-color: var(--bg-header); border-bottom: 1px solid var(--border-color); }
+        .page-header h1 { font-size: 1.5em; color: var(--text-primary); font-weight: 600; margin: 0; display: flex; align-items: center; }
+        .page-header h1 i { margin-right: 10px; }
+        .page-header .actions button { background-color: var(--bg-input); color: var(--text-secondary); padding: 8px 15px; border: 1px solid var(--border-color); border-radius: 6px; font-weight: 500; cursor: pointer; transition: background-color 0.2s, color 0.2s; }
+        .page-header .actions button:hover { background-color: var(--accent-color); color: white; border-color: var(--accent-color); }
+        .page-content { padding: 25px; overflow-y: auto; flex-grow: 1; }
+        .notification-list { list-style: none; padding: 0; margin: 0; }
+        .notification-item { background-color: var(--bg-header); border-radius: 8px; margin-bottom: 12px; padding: 15px 20px; display: flex; align-items: flex-start; border-left: 4px solid transparent; transition: background-color 0.2s, border-left-color 0.2s; }
+        .notification-item.unread { background-color: var(--bg-input); border-left-color: var(--accent-color); }
+        .notification-item:hover { background-color: var(--bg-input); }
+        .notification-icon { font-size: 1.8em; color: var(--accent-color); margin-right: 20px; width: 30px; text-align: center; flex-shrink: 0; margin-top: 2px; }
+        .notification-content { flex-grow: 1; }
+        .notification-content .message { display: block; font-size: 1em; color: var(--text-primary); margin-bottom: 5px; line-height: 1.5; }
+        .notification-content .meta { font-size: 0.8em; color: var(--text-secondary); }
+        .notification-content .meta .sender-name { font-weight: 600; color: var(--text-username); }
+        .notification-content .meta .timestamp { margin-left: 8px; }
+        .notification-actions { margin-left: 20px; flex-shrink: 0; }
+        .notification-actions a, .notification-actions button { display: inline-block; background-color: var(--accent-color); color: white; padding: 6px 10px; border-radius: 5px; text-decoration: none; font-size: 0.8em; margin-top: 5px; border: none; cursor: pointer; }
+        .notification-actions button.mark-read { background-color: var(--bg-input); color: var(--text-secondary); }
+        .no-notifications { text-align: center; padding: 40px 20px; color: var(--text-secondary); }
+        .no-notifications i { font-size: 3em; display: block; margin-bottom: 15px; opacity: 0.5; }
+    </style>
+</head>
+<body>
+    <div class="chat-app-container">
+        <%- include('partials/navbar', { username: username, userId: userId, activePage: activePage, currentUser: currentUser, unreadNotificationsCount: unreadNotificationsCount }) %>
+        <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+        <main class="content-area">
+            <div class="page-header">
+                <h1><i class="fas fa-bell"></i> Notifikasi Anda</h1>
+                <div class="actions">
+                    <% if (notifications && notifications.filter(n => !n.isRead).length > 0) { %>
+                        <button id="markAllReadBtn"><i class="fas fa-check-double"></i> Tandai Semua Terbaca</button>
+                    <% } %>
+                </div>
+            </div>
+
+            <div class="page-content">
+                <% if (notifications && notifications.length > 0) { %>
+                    <ul class="notification-list">
+                        <% notifications.forEach(notif => { %>
+                            <li class="notification-item <%= !notif.isRead ? 'unread' : '' %>" data-notif-id="<%= notif._id %>">
+                                <div class="notification-icon">
+                                    <% if (notif.type === 'friend_request_sent' || notif.type === 'friend_request_accepted') { %>
+                                        <i class="fas fa-user-plus"></i>
+                                    <% } else if (notif.type.startsWith('new_message')) { %>
+                                        <i class="fas fa-comment-dots"></i>
+                                    <% } else if (notif.type === 'channel_invite') { %>
+                                        <i class="fas fa-hashtag"></i>
+                                    <% } else if (notif.type === 'mention') { %>
+                                        <i class="fas fa-at"></i>
+                                    <% } else { %>
+                                        <i class="fas fa-info-circle"></i>
+                                    <% } %>
+                                </div>
+                                <div class="notification-content">
+                                    <span class="message">
+                                        <% if (notif.sender) { %>
+                                            <strong class="sender-name"><%= notif.sender.displayUsername || 'Sistem' %></strong>
+                                        <% } %>
+                                        <%= notif.message %>
+                                    </span>
+                                    <div class="meta">
+                                        <span class="timestamp"><%= new Date(notif.createdAt).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' }) %></span>
+                                    </div>
+                                </div>
+                                <div class="notification-actions">
+                                    <% if (notif.link && notif.link !== '#') { %>
+                                        <a href="<%= notif.link %>" onclick="markNotificationAsRead('<%= notif._id %>', event)">Lihat Detail</a>
+                                    <% } %>
+                                    <% if (!notif.isRead) { %>
+                                        <button class="mark-read" onclick="markNotificationAsRead('<%= notif._id %>', event, true)">Tandai Terbaca</button>
+                                    <% } %>
+                                </div>
+                            </li>
+                        <% }); %>
+                    </ul>
+                <% } else { %>
+                    <div class="no-notifications">
+                        <i class="fas fa-bell-slash"></i>
+                        <p>Tidak ada notifikasi untuk saat ini.</p>
+                    </div>
+                <% } %>
+            </div>
+        </main>
+    </div>
+
+    <%- include('partials/common_scripts') %>
+    <script>
+        async function markNotificationAsRead(notificationId, event, preventDefaultOnly = false) {
+            if (event && !preventDefaultOnly) {
+                // Jika ada link dan tidak hanya mark as read, biarkan link bekerja setelah request
+            } else if (event) {
+                event.preventDefault(); // Mencegah navigasi jika hanya mark as read
+            }
+
+            try {
+                const response = await fetch(`/notifications/${notificationId}/read`, { method: 'POST' });
+                if (response.ok) {
+                    const listItem = document.querySelector(`.notification-item[data-notif-id="${notificationId}"]`);
+                    if (listItem) {
+                        listItem.classList.remove('unread');
+                        const readButton = listItem.querySelector('.mark-read');
+                        if(readButton) readButton.remove();
+                    }
+                    // Update unread count di navbar (opsional, butuh lebih banyak logika)
+                } else {
+                    console.error('Gagal menandai notifikasi sebagai terbaca');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+            }
+        }
+
+        const markAllReadBtn = document.getElementById('markAllReadBtn');
+        if (markAllReadBtn) {
+            markAllReadBtn.addEventListener('click', async () => {
+                try {
+                    const response = await fetch('/notifications/read-all', { method: 'POST' });
+                    if (response.ok) {
+                        document.querySelectorAll('.notification-item.unread').forEach(item => {
+                            item.classList.remove('unread');
+                            const readButton = item.querySelector('.mark-read');
+                            if(readButton) readButton.remove();
+                        });
+                        markAllReadBtn.style.display = 'none'; // Sembunyikan tombol setelah semua dibaca
+                        // Update unread count di navbar
+                    } else {
+                        console.error('Gagal menandai semua notifikasi sebagai terbaca');
+                    }
+                } catch (error) {
+                    console.error('Error:', error);
+                }
+            });
+        }
+    </script>
+</body>
+</html>

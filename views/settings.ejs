@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pengaturan Akun - <%= username %></title>
+    <%- include('partials/common_head_content') %>
+    <style>
+        .content-area { flex-grow: 1; display: flex; flex-direction: column; background-color: var(--bg-chat-area); }
+        .page-header { display: flex; justify-content: space-between; align-items: center; padding: 20px 25px; background-color: var(--bg-header); border-bottom: 1px solid var(--border-color); }
+        .page-header h1 { font-size: 1.5em; color: var(--text-primary); font-weight: 600; margin: 0; display: flex; align-items: center; }
+        .page-header h1 i { margin-right: 10px; }
+        .page-content { padding: 25px; overflow-y: auto; flex-grow: 1; max-width: 800px; margin: 0 auto; /* Center content */ }
+        
+        .settings-card { background-color: var(--bg-header); padding: 30px; border-radius: 10px; margin-bottom: 30px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
+        .settings-card h2 { font-size: 1.3em; color: var(--text-primary); margin-top: 0; margin-bottom: 25px; padding-bottom: 10px; border-bottom: 1px solid var(--border-color); display: flex; align-items: center; }
+        .settings-card h2 i { margin-right: 12px; color: var(--accent-color); }
+
+        .profile-picture-section { display: flex; align-items: center; margin-bottom: 25px; }
+        .profile-picture-preview { width: 100px; height: 100px; border-radius: 50%; background-color: var(--bg-input); margin-right: 20px; background-size: cover; background-position: center; border: 3px solid var(--border-color); display: flex; justify-content: center; align-items: center; }
+        .profile-picture-preview i { font-size: 3em; color: var(--text-secondary); }
+        .profile-picture-section .form-group { flex-grow: 1; margin-bottom: 0; }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <%- include('partials/navbar', { username: username, userId: userId, activePage: activePage, currentUser: currentUser, unreadNotificationsCount: unreadNotificationsCount }) %>
+        <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+        <main class="content-area">
+            <div class="page-header">
+                <h1><i class="fas fa-user-cog"></i> Pengaturan Akun</h1>
+                 <button class="menu-toggle-btn-placeholder" id="menuToggleBtn" title="Buka Menu"><i class="fas fa-bars"></i></button>
+            </div>
+
+            <div class="page-content">
+                <% if (locals.error) { %><div class="alert alert-danger"><i class="fas fa-times-circle"></i> <%= error %></div><% } %>
+                <% if (locals.success) { %><div class="alert alert-success"><i class="fas fa-check-circle"></i> <%= success %></div><% } %>
+
+                <form action="/settings" method="POST" id="settingsForm">
+                    <div class="settings-card">
+                        <h2><i class="fas fa-id-card"></i> Informasi Profil</h2>
+                        <div class="profile-picture-section">
+                            <div class="profile-picture-preview" id="profilePicturePreview" style="background-image: url('<%= currentUser.profilePictureUrl && currentUser.profilePictureUrl !== '' ? currentUser.profilePictureUrl : '' %>');">
+                                <% if (!currentUser.profilePictureUrl || currentUser.profilePictureUrl === '') { %>
+                                    <i class="fas fa-user-astronaut"></i>
+                                <% } %>
+                            </div>
+                            <div class="form-group">
+                                <label for="profilePictureUrl">URL Foto Profil</label>
+                                <input type="url" id="profilePictureUrl" name="profilePictureUrl" value="<%= currentUser.profilePictureUrl || '' %>" placeholder="https://example.com/avatar.png">
+                                <small class="form-text">Masukkan URL lengkap ke gambar Anda (misalnya dari Imgur, Cloudinary).</small>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="displayName">Nama Tampilan</label>
+                            <input type="text" id="displayName" name="displayName" value="<%= currentUser.displayName || currentUser.username %>" placeholder="Nama yang akan ditampilkan ke pengguna lain">
+                        </div>
+                        <div class="form-group">
+                            <label for="username_display">Nama Pengguna (tidak dapat diubah)</label>
+                            <input type="text" id="username_display" name="username_display" value="<%= currentUser.username %>" readonly disabled style="background-color: var(--border-color); cursor: not-allowed;">
+                        </div>
+                        <div class="form-group">
+                            <label for="email">Alamat Email</label>
+                            <input type="email" id="email" name="email" value="<%= currentUser.email || '' %>" placeholder="email@example.com">
+                        </div>
+                        <div class="form-group">
+                            <label for="bio">Bio Singkat</label>
+                            <textarea id="bio" name="bio" placeholder="Sedikit tentang Anda... (maks 150 karakter)" maxlength="150"><%= currentUser.bio || '' %></textarea>
+                        </div>
+                    </div>
+
+                    <div class="settings-card">
+                        <h2><i class="fas fa-key"></i> Ubah Password</h2>
+                        <div class="form-group">
+                            <label for="newPassword">Password Baru</label>
+                            <input type="password" id="newPassword" name="newPassword" placeholder="Biarkan kosong jika tidak ingin mengubah">
+                            <small class="form-text">Minimal 6 karakter.</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="confirmNewPassword">Konfirmasi Password Baru</label>
+                            <input type="password" id="confirmNewPassword" name="confirmNewPassword" placeholder="Ketik ulang password baru Anda">
+                        </div>
+                    </div>
+                    
+                    <div style="text-align: right; margin-top: 20px;">
+                        <button type="submit" class="btn-primary"><i class="fas fa-save"></i> Simpan Perubahan</button>
+                    </div>
+                </form>
+            </div>
+        </main>
+    </div>
+    <%- include('partials/common_scripts') %>
+    <script>
+        const profilePictureUrlInput = document.getElementById('profilePictureUrl');
+        const profilePicturePreview = document.getElementById('profilePicturePreview');
+        const defaultAvatarIcon = '<i class="fas fa-user-astronaut"></i>';
+
+        if (profilePictureUrlInput && profilePicturePreview) {
+            profilePictureUrlInput.addEventListener('input', function() {
+                const url = this.value.trim();
+                if (url) {
+                    profilePicturePreview.style.backgroundImage = `url('${url}')`;
+                    profilePicturePreview.innerHTML = ''; // Hapus ikon jika ada gambar
+                } else {
+                    profilePicturePreview.style.backgroundImage = 'none';
+                    profilePicturePreview.innerHTML = defaultAvatarIcon;
+                }
+            });
+        }
+    </script>
+</body>
+</html>
