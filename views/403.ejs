@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>403 - Akses Ditolak</title>
+    <%- include('partials/common_head_content') %>
+    <style>
+        body { display: flex; justify-content: center; align-items: center; text-align: center; min-height: 100vh; padding: 20px; }
+        .error-container { max-width: 500px; }
+        .error-container h1 { font-size: 3em; color: var(--danger-color); margin-bottom: 15px; }
+        .error-container p { font-size: 1.2em; margin-bottom: 25px; color: var(--text-secondary); }
+        .error-container .btn-primary { font-size: 1em; }
+    </style>
+</head>
+<body>
+    <div class="error-container">
+        <h1><i class="fas fa-user-lock"></i> 403</h1>
+        <p><%= locals.message || 'Maaf, Anda tidak memiliki izin untuk mengakses halaman ini.' %></p>
+        <a href="/chat" class="btn-primary"><i class="fas fa-home"></i> Kembali ke Beranda</a>
+    </div>
+    <%- include('partials/common_scripts') %>
+</body>
+</html>
